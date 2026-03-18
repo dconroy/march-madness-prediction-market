@@ -2,54 +2,36 @@
 
 import type { TitleOdds } from "@/lib/types";
 
-function formatProb(p: number) {
-  return `${p.toFixed(1)}%`;
-}
-
-function formatTeamName(s: string) {
-  return s;
-}
-
 export default function SummaryBar({ titleOdds, lastUpdated }: { titleOdds: TitleOdds[]; lastUpdated: string }) {
   const sorted = [...titleOdds].sort((a, b) => b.probability - a.probability);
-  const favorite = sorted[0];
   const top4 = sorted.slice(0, 4);
 
   return (
-    <div className="w-full rounded-2xl border border-zinc-200/70 bg-white/70 backdrop-blur-sm shadow-sm px-4 py-3">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">National Title Favorite</div>
-          {favorite ? (
-            <div className="mt-1 text-lg font-bold text-zinc-900">
-              {formatTeamName(favorite.teamName)} <span className="text-zinc-600">({formatProb(favorite.probability)})</span>
+    <div className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {/* Top contenders */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {top4.map((o, i) => (
+            <div key={o.teamId} className="flex items-baseline gap-1">
+              <span className={[
+                "text-sm font-bold tabular-nums",
+                i === 0 ? "text-zinc-900" : "text-zinc-700",
+              ].join(" ")}>
+                {o.teamName}
+              </span>
+              <span className="text-xs text-zinc-500 font-mono tabular-nums">
+                {o.probability.toFixed(1)}%
+              </span>
             </div>
-          ) : (
-            <div className="mt-1 text-lg font-bold text-zinc-900">Unavailable</div>
-          )}
+          ))}
         </div>
 
-        <div className="flex items-start gap-6">
-          <div>
-            <div className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">Top 4 Contenders</div>
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-              {top4.map((o) => (
-                <div key={o.teamId} className="text-sm">
-                  <span className="font-semibold text-zinc-900">{o.teamName}</span>{" "}
-                  <span className="text-zinc-600">({formatProb(o.probability)})</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="text-right">
-            <div className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">Last Updated</div>
-            <div className="mt-1 text-sm font-medium text-zinc-800">{new Date(lastUpdated).toLocaleString()}</div>
-            <div className="mt-1 text-xs font-semibold text-zinc-500">Prediction market data</div>
-          </div>
+        {/* Timestamp */}
+        <div className="text-[11px] text-zinc-400 whitespace-nowrap">
+          Updated {new Date(lastUpdated).toLocaleDateString(undefined, { month: "short", day: "numeric" })}{" "}
+          {new Date(lastUpdated).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
         </div>
       </div>
     </div>
   );
 }
-

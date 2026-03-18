@@ -11,7 +11,7 @@ export default function BracketRound({
   showRegionLabels,
 }: {
   round: 0 | 1 | 2 | 3;
-  columnIndex: number; // 0..3 for region rounds
+  columnIndex: number;
   matchupsByRegion: Record<Region, Matchup[]>;
   showRegionLabels?: boolean;
 }) {
@@ -19,28 +19,25 @@ export default function BracketRound({
 
   return (
     <>
-      {showRegionLabels ? (
-        <>
-          {Object.keys(matchupsByRegion).map((r) => {
-            const region = r as Region;
-            const idx = regionIndex(region);
-            if (idx < 0) return null;
-            return (
-              <div
-                key={region}
-                className="absolute text-[12px] font-semibold text-zinc-700 px-2"
-                style={{
-                  left: xCenter - CARD_W / 2,
-                  top: regionTopPx(idx) - 22,
-                  width: CARD_W,
-                }}
-              >
-                {region}
-              </div>
-            );
-          })}
-        </>
-      ) : null}
+      {showRegionLabels &&
+        Object.keys(matchupsByRegion).map((r) => {
+          const region = r as Region;
+          const idx = regionIndex(region);
+          if (idx < 0) return null;
+          return (
+            <div
+              key={region}
+              className="absolute text-[11px] font-bold uppercase tracking-wider text-zinc-500"
+              style={{
+                left: xCenter - CARD_W / 2,
+                top: regionTopPx(idx) - 18,
+                width: CARD_W,
+              }}
+            >
+              {region}
+            </div>
+          );
+        })}
 
       {(
         Object.entries(matchupsByRegion) as Array<[Region, Matchup[]]>
@@ -61,9 +58,7 @@ export default function BracketRound({
                 height: CARD_H,
               }}
             >
-              <div className="h-full">
-                <MatchupCard matchup={m} />
-              </div>
+              <MatchupCard matchup={m} />
             </div>
           );
         });
@@ -71,4 +66,3 @@ export default function BracketRound({
     </>
   );
 }
-

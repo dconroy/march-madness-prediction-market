@@ -3,94 +3,98 @@
 import type { Matchup, Team } from "@/lib/types";
 
 function formatProb(p?: number) {
-  if (p === undefined || p === null || !Number.isFinite(p)) return undefined;
+  if (p === undefined || p === null || !Number.isFinite(p)) return null;
   return `${p.toFixed(1)}%`;
 }
 
 function formatVolume(v?: number) {
-  if (v === undefined || v === null || !Number.isFinite(v)) return undefined;
-  // volume in USD terms in the Polymarket markets feed (usually a big number).
+  if (v === undefined || v === null || !Number.isFinite(v)) return null;
   const abs = Math.abs(v);
-  if (abs >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
-  if (abs >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
-  if (abs >= 1e3) return `$${(v / 1e3).toFixed(2)}K`;
+  if (abs >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `$${(v / 1e3).toFixed(1)}K`;
   return `$${v.toFixed(0)}`;
 }
 
-function FavoriteDot({ isFav }: { isFav: boolean }) {
-  return (
-    <span
-      className={[
-        "inline-block h-2 w-2 rounded-full",
-        isFav ? "bg-amber-400 shadow-[0_0_0_3px_rgba(251,191,36,0.15)]" : "bg-zinc-500/40",
-      ].join(" ")}
-    />
-  );
-}
-
-export default function MatchupCard({ matchup }: { matchup: Matchup }) {
-  const probA = matchup.probA;
-  const probB = matchup.probB;
-  const favA = probA !== undefined && probB !== undefined ? probA >= probB : false;
-
-  const teamA: Team | undefined = matchup.teamA;
-  const teamB: Team | undefined = matchup.teamB;
-
-  const volumeText = formatVolume(matchup.volume);
-  const sourceLabel = matchup.source === "market" ? "Market" : matchup.source === "fallback" ? "Inferred" : undefined;
-
-  const hasAnyProb = probA !== undefined || probB !== undefined;
-
+function TeamRow({
+  team,
+  prob,
+  isWinner,
+  hasProbs,
+}: {
+  team?: Team;
+  prob?: number;
+  isWinner: boolean;
+  hasProbs: boolean;
+}) {
+  const probText = formatProb(prob);
   return (
     <div
       className={[
-        "group h-full overflow-hidden rounded-xl border bg-white/60 backdrop-blur-sm",
-        hasAnyProb ? "border-zinc-200/70 hover:border-zinc-300" : "border-zinc-200/50 opacity-90",
+        "flex items-center justify-between gap-1 px-2.5 py-[5px] min-w-0 transition-colors",
+        isWinner
+          ? "bg-emerald-50 border-l-2 border-l-emerald-500"
+          : "border-l-2 border-l-transparent",
       ].join(" ")}
     >
-      <div className="flex items-start justify-between gap-2 px-3 py-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {sourceLabel ? (
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-600 bg-zinc-100/80 px-2 py-0.5 rounded-full">
-              {sourceLabel}
-            </span>
-          ) : (
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 bg-zinc-100/60 px-2 py-0.5 rounded-full">
-              Unavailable
-            </span>
-          )}
-        </div>
-        {volumeText ? <span className="text-[11px] text-zinc-500">Vol {volumeText}</span> : <span className="text-[11px] text-zinc-500"> </span>}
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="text-[10px] font-mono text-zinc-400 w-4 text-right shrink-0">
+          {team?.seed ?? "—"}
+        </span>
+        <span
+          className={[
+            "text-[11px] truncate leading-tight",
+            isWinner ? "font-bold text-zinc-900" : "font-medium text-zinc-700",
+            !team ? "italic text-zinc-400" : "",
+          ].join(" ")}
+        >
+          {team?.name ?? "TBD"}
+        </span>
       </div>
-
-      <div className="px-3 pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <FavoriteDot isFav={favA} />
-            <div className="min-w-0">
-              <div className="text-xs font-semibold truncate">{teamA ? teamA.name : "TBD"}</div>
-              <div className="text-[11px] text-zinc-600">Seed {teamA?.seed ?? "—"}</div>
-            </div>
-          </div>
-          <div className="text-xs font-semibold text-zinc-900">
-            {probA !== undefined ? formatProb(probA) : hasAnyProb ? "—" : "—"}
-          </div>
-        </div>
-
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <FavoriteDot isFav={!favA} />
-            <div className="min-w-0">
-              <div className="text-xs font-semibold truncate">{teamB ? teamB.name : "TBD"}</div>
-              <div className="text-[11px] text-zinc-600">Seed {teamB?.seed ?? "—"}</div>
-            </div>
-          </div>
-          <div className="text-xs font-semibold text-zinc-900">
-            {probB !== undefined ? formatProb(probB) : hasAnyProb ? "—" : "—"}
-          </div>
-        </div>
-      </div>
+      <span
+        className={[
+          "text-[11px] font-mono tabular-nums shrink-0",
+          isWinner ? "font-bold text-emerald-700" : "text-zinc-500",
+        ].join(" ")}
+      >
+        {probText ?? (hasProbs ? "—" : "")}
+      </span>
     </div>
   );
 }
 
+export default function MatchupCard({ matchup }: { matchup: Matchup }) {
+  const { probA, probB, teamA, teamB, winnerId, source, volume } = matchup;
+  const hasProbs = probA !== undefined || probB !== undefined;
+  const isWinnerA = !!winnerId && teamA?.id === winnerId;
+  const isWinnerB = !!winnerId && teamB?.id === winnerId;
+  const volText = formatVolume(volume);
+
+  return (
+    <div
+      className={[
+        "h-full rounded-lg border overflow-hidden flex flex-col justify-center",
+        hasProbs
+          ? "border-zinc-200 bg-white shadow-sm"
+          : "border-zinc-200/60 bg-zinc-50",
+      ].join(" ")}
+    >
+      <TeamRow team={teamA} prob={probA} isWinner={isWinnerA} hasProbs={hasProbs} />
+      <div className="border-t border-zinc-100 mx-2" />
+      <TeamRow team={teamB} prob={probB} isWinner={isWinnerB} hasProbs={hasProbs} />
+      {(source || volText) && (
+        <div className="flex items-center justify-between px-2.5 pb-1">
+          <span
+            className={[
+              "text-[8px] font-semibold uppercase tracking-wider",
+              source === "market" ? "text-blue-500" : source === "fallback" ? "text-amber-500" : "text-zinc-400",
+            ].join(" ")}
+          >
+            {source === "market" ? "Market" : source === "fallback" ? "Inferred" : ""}
+          </span>
+          {volText && <span className="text-[8px] text-zinc-400">{volText}</span>}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -6,75 +6,82 @@ import { inferBracket } from "@/lib/bracket";
 import Bracket from "@/components/Bracket";
 import SummaryBar from "@/components/SummaryBar";
 
-function ToggleRow({
-  mode,
-  onModeChange,
-}: {
-  mode: ProbMode;
-  onModeChange: (m: ProbMode) => void;
-}) {
-  return (
-    <div className="w-full rounded-2xl border border-zinc-200/70 bg-white/70 backdrop-blur-sm px-4 py-3">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div className="text-sm font-semibold text-zinc-900">Probability source</div>
-          <div className="text-xs text-zinc-600">Deterministic bracket auto-advance using the selected heuristic.</div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => onModeChange("game")}
-            className={[
-              "px-3 py-2 rounded-xl border text-sm transition-colors",
-              mode === "game" ? "bg-zinc-900 text-white border-zinc-900" : "bg-white/60 border-zinc-200 text-zinc-800 hover:bg-white",
-            ].join(" ")}
-          >
-            Use game-by-game market probabilities
-          </button>
-          <button
-            type="button"
-            onClick={() => onModeChange("fallback")}
-            className={[
-              "px-3 py-2 rounded-xl border text-sm transition-colors",
-              mode === "fallback" ? "bg-zinc-900 text-white border-zinc-900" : "bg-white/60 border-zinc-200 text-zinc-800 hover:bg-white",
-            ].join(" ")}
-          >
-            Use title odds only as fallback
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+const MODE_OPTIONS: { value: ProbMode; label: string; desc: string }[] = [
+  {
+    value: "fallback",
+    label: "Full bracket (title odds)",
+    desc: "Fills every round using title-odds head-to-head when game markets aren\u2019t available.",
+  },
+  {
+    value: "game",
+    label: "Game markets only",
+    desc: "Only shows rounds where Polymarket has a direct game market. Later rounds may be empty.",
+  },
+];
 
 export default function BracketClient({ model }: { model: BracketModel }) {
   const [mode, setMode] = useState<ProbMode>("fallback");
 
   const inferred = useMemo(() => inferBracket(model, mode), [model, mode]);
 
+  const activeOption = MODE_OPTIONS.find((o) => o.value === mode)!;
+
   return (
-    <div className="min-h-screen bg-[radial-gradient(1200px_600px_at_20%_-10%,rgba(250,250,250,0.95),transparent_50%),radial-gradient(1000px_500px_at_90%_0%,rgba(244,244,245,0.8),transparent_50%),#f8fafc] px-3 py-5">
-      <div className="mx-auto w-full max-w-6xl flex flex-col gap-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">March Madness 2026 Market Bracket</h1>
-            <p className="mt-1 text-sm text-zinc-600">NCAA men&rsquo;s bracket inference from Polymarket prediction market probabilities.</p>
-          </div>
+    <div className="min-h-screen bg-slate-50 px-3 py-5">
+      <div className="mx-auto w-full max-w-[1340px] flex flex-col gap-3">
+        {/* Header */}
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl font-extrabold tracking-tight text-zinc-900">
+            March Madness 2026
+            <span className="ml-2 text-base font-semibold text-zinc-500">Market Bracket</span>
+          </h1>
+          <p className="text-xs text-zinc-500">
+            Deterministic bracket auto-advanced using Polymarket prediction market probabilities.
+          </p>
         </div>
 
         <SummaryBar titleOdds={model.titleOdds} lastUpdated={model.rd64.lastUpdated} />
-        <ToggleRow mode={mode} onModeChange={setMode} />
 
-        <div className="rounded-2xl border border-zinc-200/70 bg-white/60 backdrop-blur-sm p-3 overflow-x-auto">
+        {/* Mode toggle */}
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
+          <div className="flex gap-1.5">
+            {MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setMode(opt.value)}
+                className={[
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                  mode === opt.value
+                    ? "bg-zinc-900 text-white shadow-sm"
+                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
+                ].join(" ")}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-zinc-500 max-w-md">{activeOption.desc}</p>
+        </div>
+
+        {/* Bracket */}
+        <div className="rounded-xl border border-zinc-200 bg-white p-2 overflow-x-auto">
           <Bracket inferred={inferred} />
         </div>
 
-        <div className="text-xs text-zinc-500">
-          Auto-advance picks the higher implied win probability each game. Market-derived probabilities are labeled in each matchup card; inferred probabilities use title-odds fallback.
+        {/* Legend */}
+        <div className="flex flex-wrap gap-4 text-[10px] text-zinc-500 px-1">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-sm bg-emerald-500" /> Winner (higher probability)
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" /> Market data
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" /> Inferred from title odds
+          </span>
         </div>
       </div>
     </div>
   );
 }
-

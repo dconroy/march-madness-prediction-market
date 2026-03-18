@@ -82,17 +82,36 @@ type BracketRd64GameSource = {
   marketSlug?: string; // cbb event slug for this specific R1 game, if found
 };
 
-function extractRegionForIndex(html: string, idx: number): Region | undefined {
-  let bestRegion: Region | undefined;
-  let bestIdx = -1;
+type RegionBoundary = { region: Region; idx: number };
+type BracketBounds = { boundaries: RegionBoundary[]; bracketEnd: number };
+
+function findBracketBounds(html: string): BracketBounds {
+  const all: RegionBoundary[] = [];
   for (const r of REGION_ORDER) {
-    const candidateIdx = html.lastIndexOf(r, idx);
-    if (candidateIdx > bestIdx) {
-      bestIdx = candidateIdx;
-      bestRegion = r;
+    const re = new RegExp(`tracking-widest mb-2 px-1[^>]*>${r}</div>`, "g");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html)) !== null) {
+      all.push({ region: r, idx: m.index });
     }
   }
-  return bestRegion;
+  all.sort((a, b) => a.idx - b.idx);
+  const boundaries = all.slice(0, REGION_ORDER.length);
+
+  const translateYRe = /tracking-widest[^>]*translateY[^>]*>(?:East|South|West|Midwest)<\/div>/;
+  const endMatch = translateYRe.exec(html);
+  const bracketEnd = endMatch ? endMatch.index : html.length;
+
+  return { boundaries, bracketEnd };
+}
+
+function extractRegionForIndex(idx: number, bounds: BracketBounds): Region | undefined {
+  if (idx >= bounds.bracketEnd) return undefined;
+  let best: Region | undefined;
+  for (const b of bounds.boundaries) {
+    if (b.idx <= idx) best = b.region;
+    else break;
+  }
+  return best;
 }
 
 function parsePolymarketBracketPageForRd64(html: string): Record<Region, BracketRd64GameSource[]> {
@@ -103,7 +122,8 @@ function parsePolymarketBracketPageForRd64(html: string): Record<Region, Bracket
     Midwest: [],
   };
 
-  // Each first-round matchup should include exactly two seeds (1..16) and two team logos with alt text.
+  const bounds = findBracketBounds(html);
+
   const hrefRe = /href="\/event\/(cbb-[A-Za-z0-9-]+)"\s*>Game View/g;
   const hrefMatches = [...html.matchAll(hrefRe)];
 
@@ -111,12 +131,10 @@ function parsePolymarketBracketPageForRd64(html: string): Record<Region, Bracket
     const slug = m[1];
     const slugStart = m.index ?? 0;
 
-    // Slice from this event link to just before the next event link so we only parse one matchup.
     const nextHrefIdx = html.indexOf('href="/event/cbb-', slugStart + slug.length);
     const slice = html.slice(slugStart, nextHrefIdx === -1 ? slugStart + 2500 : nextHrefIdx);
 
-    // Determine region and round.
-    const region = extractRegionForIndex(html, slugStart);
+    const region = extractRegionForIndex(slugStart, bounds);
     if (!region) continue;
 
     const roundMatch = slice.match(/>R(\d)</);

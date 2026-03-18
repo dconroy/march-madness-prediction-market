@@ -1,4 +1,5 @@
 node_modules
 .next
 out
-docs
+docs/*
+!docs/.gitkeep

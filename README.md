@@ -81,5 +81,5 @@ The inference engine is in `src/lib/bracket.ts` and is deterministic given the i
 This project is configured for a static export (builds to `out/`), so it can be deployed to GitHub Pages.
 
 1. Push commits to `main` (the workflow runs automatically).
-2. In your repo’s GitHub Pages settings, publish from the `gh-pages` branch, root folder.
+2. In your repo’s GitHub Pages settings, publish from the `main` branch, folder: `/docs`.
 3. The deployment assumes a standard project-pages URL prefix: `https://<user>.github.io/<repo-name>/`.

@@ -11,6 +11,22 @@ const GAMMA_API_BASE = "https://gamma-api.polymarket.com";
 const POLYMARKET_BRACKET_URL = "https://polymarket.com/sports/cbb/bracket";
 const TITLE_EVENT_SLUG = "2026-ncaa-tournament-winner";
 
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&rsquo;/g, "\u2019")
+    .replace(/&lsquo;/g, "\u2018")
+    .replace(/&ndash;/g, "\u2013")
+    .replace(/&mdash;/g, "\u2014")
+    .replace(/&nbsp;/g, " ");
+}
+
 function teamIdFromName(name: string) {
   return name
     .toLowerCase()
@@ -119,8 +135,7 @@ function parsePolymarketBracketPageForRd64(html: string): Record<Region, Bracket
     const slot = rd64SlotForSeedPair(region, seedKeyMin, seedKeyMax);
     if (!slot) continue;
 
-    const altMatches = [...slice.matchAll(/alt="([^"]+)"/g)].map((x) => x[1]).filter((x) => normalizeTeamNameForMatch(x).length > 1);
-    // Typically the first two alts in this slice correspond to the two teams.
+    const altMatches = [...slice.matchAll(/alt="([^"]+)"/g)].map((x) => decodeHtmlEntities(x[1])).filter((x) => normalizeTeamNameForMatch(x).length > 1);
     const teamNames = altMatches.slice(0, 2);
     if (teamNames.length < 2) continue;
 

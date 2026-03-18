@@ -1,19 +1,19 @@
 import type { Region } from "@/lib/types";
 import { REGION_ORDER } from "@/data/bracket2026";
 
-export const CARD_W = 192;
-export const CARD_H = 58;
-export const CARD_GAP_Y = 6;
+export const CARD_W = 210;
+export const CARD_H = 56;
+export const CARD_GAP_Y = 12;
 export const ROW_PITCH = CARD_H + CARD_GAP_Y;
 
 export const REGION_HEIGHT = 8 * CARD_H + 7 * CARD_GAP_Y;
-export const REGION_GAP_Y = 24;
+export const REGION_GAP_Y = 40;
 
 export const COL_W = CARD_W;
-export const COL_GAP_X = 28;
-export const COL_PAD_X = 12;
+export const COL_GAP_X = 36;
+export const COL_PAD_X = 16;
 
-export const HEADER_H = 40;
+export const HEADER_H = 44;
 
 export const bracketWidth = () => COL_PAD_X * 2 + COL_W * 6 + COL_GAP_X * 5;
 export const bracketHeight = () => HEADER_H + REGION_HEIGHT * 4 + REGION_GAP_Y * 3;

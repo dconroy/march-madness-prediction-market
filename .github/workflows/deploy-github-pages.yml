@@ -35,13 +35,13 @@ jobs:
           ls -la ./out
           test -f ./out/.nojekyll
 
-      - name: Deploy `out/` to `main/docs`
+      - name: Deploy `out/` to `docs` branch
         uses: peaceiris/actions-gh-pages@v4
         if: github.actor != 'github-actions[bot]'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./out
-          publish_branch: main
-          destination_dir: docs
+          publish_branch: docs
+          force_orphan: true
           enable_jekyll: false
 

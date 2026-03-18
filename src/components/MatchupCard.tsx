@@ -1,6 +1,13 @@
 "use client";
 
-import type { Matchup, Team } from "@/lib/types";
+import type { Matchup, Region, Team } from "@/lib/types";
+
+const REGION_COLORS: Record<Region, { bg: string; border: string; text: string }> = {
+  East: { bg: "bg-blue-50", border: "border-l-blue-400", text: "text-blue-600" },
+  South: { bg: "bg-orange-50", border: "border-l-orange-400", text: "text-orange-600" },
+  West: { bg: "bg-purple-50", border: "border-l-purple-400", text: "text-purple-600" },
+  Midwest: { bg: "bg-rose-50", border: "border-l-rose-400", text: "text-rose-600" },
+};
 
 function formatProb(p?: number) {
   if (p === undefined || p === null || !Number.isFinite(p)) return null;
@@ -31,10 +38,8 @@ function TeamRow({
   return (
     <div
       className={[
-        "flex items-center justify-between gap-1 px-2.5 py-[5px] min-w-0 transition-colors",
-        isWinner
-          ? "bg-emerald-50 border-l-2 border-l-emerald-500"
-          : "border-l-2 border-l-transparent",
+        "flex items-center justify-between gap-1 px-2 py-[4px] min-w-0",
+        isWinner ? "bg-emerald-50/80" : "",
       ].join(" ")}
     >
       <div className="flex items-center gap-1.5 min-w-0">
@@ -63,27 +68,32 @@ function TeamRow({
   );
 }
 
-export default function MatchupCard({ matchup }: { matchup: Matchup }) {
-  const { probA, probB, teamA, teamB, winnerId, source, volume } = matchup;
+export default function MatchupCard({ matchup, showRegion }: { matchup: Matchup; showRegion?: boolean }) {
+  const { probA, probB, teamA, teamB, winnerId, source, volume, region } = matchup;
   const hasProbs = probA !== undefined || probB !== undefined;
   const isWinnerA = !!winnerId && teamA?.id === winnerId;
   const isWinnerB = !!winnerId && teamB?.id === winnerId;
   const volText = formatVolume(volume);
+  const regionColor = region ? REGION_COLORS[region] : null;
 
   return (
     <div
       className={[
-        "h-full rounded-lg border overflow-hidden flex flex-col justify-center",
-        hasProbs
-          ? "border-zinc-200 bg-white shadow-sm"
-          : "border-zinc-200/60 bg-zinc-50",
+        "h-full rounded-lg overflow-hidden flex flex-col justify-center border-l-[3px]",
+        hasProbs ? "bg-white shadow-sm border border-zinc-200" : "bg-zinc-50 border border-zinc-200/60",
+        regionColor ? regionColor.border : "border-l-zinc-300",
       ].join(" ")}
     >
+      {showRegion && region && regionColor && (
+        <div className={["px-2 pt-1 text-[8px] font-bold uppercase tracking-wider", regionColor.text].join(" ")}>
+          {region}
+        </div>
+      )}
       <TeamRow team={teamA} prob={probA} isWinner={isWinnerA} hasProbs={hasProbs} />
-      <div className="border-t border-zinc-100 mx-2" />
+      <div className="border-t border-zinc-100 mx-1.5" />
       <TeamRow team={teamB} prob={probB} isWinner={isWinnerB} hasProbs={hasProbs} />
       {(source || volText) && (
-        <div className="flex items-center justify-between px-2.5 pb-1">
+        <div className="flex items-center justify-between px-2 pb-0.5">
           <span
             className={[
               "text-[8px] font-semibold uppercase tracking-wider",

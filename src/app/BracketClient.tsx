@@ -70,15 +70,27 @@ export default function BracketClient({ model }: { model: BracketModel }) {
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-4 text-[10px] text-zinc-500 px-1">
+        <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-[10px] text-zinc-500 px-1">
           <span className="flex items-center gap-1">
-            <span className="inline-block w-2 h-2 rounded-sm bg-emerald-500" /> Winner (higher probability)
+            <span className="inline-block w-2 h-2 rounded-sm bg-emerald-500" /> Winner
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" /> Market data
+            <span className="inline-block w-3 h-0.5 bg-blue-400 rounded" /> East
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" /> Inferred from title odds
+            <span className="inline-block w-3 h-0.5 bg-orange-400 rounded" /> South
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-0.5 bg-purple-400 rounded" /> West
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-0.5 bg-rose-400 rounded" /> Midwest
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="text-blue-500 font-semibold">M</span> Market
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="text-amber-500 font-semibold">I</span> Inferred
           </span>
         </div>
       </div>

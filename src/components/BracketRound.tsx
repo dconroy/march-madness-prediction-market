@@ -16,6 +16,7 @@ export default function BracketRound({
   showRegionLabels?: boolean;
 }) {
   const xCenter = columnX(columnIndex);
+  const showRegionOnCard = round > 0;
 
   return (
     <>
@@ -58,7 +59,7 @@ export default function BracketRound({
                 height: CARD_H,
               }}
             >
-              <MatchupCard matchup={m} />
+              <MatchupCard matchup={m} showRegion={showRegionOnCard} />
             </div>
           );
         });

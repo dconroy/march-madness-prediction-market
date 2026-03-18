@@ -12,6 +12,13 @@ function elbowPath(x1: number, y1: number, x2: number, y2: number) {
   return `M ${x1} ${y1} L ${xMid} ${y1} L ${xMid} ${y2} L ${x2} ${y2}`;
 }
 
+const REGION_STROKE: Record<RegionType, string> = {
+  East: "rgba(96,165,250,0.5)",
+  South: "rgba(251,146,60,0.5)",
+  West: "rgba(167,139,250,0.5)",
+  Midwest: "rgba(251,113,133,0.5)",
+};
+
 const ROUND_LABELS = [
   { col: 0, label: "R64" },
   { col: 1, label: "R32" },
@@ -53,7 +60,6 @@ export default function Bracket({ inferred }: { inferred: InferredBracket }) {
         className="relative"
         style={{ width, height, minWidth: width }}
       >
-        {/* Column headers */}
         {ROUND_LABELS.map((h) => {
           const left = columnX(h.col) - CARD_W / 2;
           return (
@@ -67,56 +73,57 @@ export default function Bracket({ inferred }: { inferred: InferredBracket }) {
           );
         })}
 
-        {/* SVG connectors */}
         <svg
           className="absolute inset-0 pointer-events-none"
           width={width}
           height={height}
           viewBox={`0 0 ${width} ${height}`}
         >
-          <g stroke="rgba(161,161,170,0.4)" strokeWidth={1} fill="none">
-            {REGION_ORDER.map((region, regionIdx) => {
-              const yR64 = (slotIndex: number) => roundCenterY(regionIdx, 0, slotIndex);
-              const yR32 = (i: number) => roundCenterY(regionIdx, 1, i);
-              const yS16 = (i: number) => roundCenterY(regionIdx, 2, i);
-              const yE8 = () => roundCenterY(regionIdx, 3, 0);
+          {REGION_ORDER.map((region, regionIdx) => {
+            const stroke = REGION_STROKE[region];
+            const yR64 = (slotIndex: number) => roundCenterY(regionIdx, 0, slotIndex);
+            const yR32 = (i: number) => roundCenterY(regionIdx, 1, i);
+            const yS16 = (i: number) => roundCenterY(regionIdx, 2, i);
+            const yE8 = () => roundCenterY(regionIdx, 3, 0);
 
-              const paths: string[] = [];
+            const paths: string[] = [];
 
-              for (let i = 0; i < 4; i++) {
-                paths.push(elbowPath(x0, yR64(2 * i), x1, yR32(i)));
-                paths.push(elbowPath(x0, yR64(2 * i + 1), x1, yR32(i)));
-              }
-              for (let i = 0; i < 2; i++) {
-                paths.push(elbowPath(x1, yR32(2 * i), x2, yS16(i)));
-                paths.push(elbowPath(x1, yR32(2 * i + 1), x2, yS16(i)));
-              }
-              for (let i = 0; i < 2; i++) {
-                paths.push(elbowPath(x2, yS16(i), x3, yE8()));
-              }
+            for (let i = 0; i < 4; i++) {
+              paths.push(elbowPath(x0, yR64(2 * i), x1, yR32(i)));
+              paths.push(elbowPath(x0, yR64(2 * i + 1), x1, yR32(i)));
+            }
+            for (let i = 0; i < 2; i++) {
+              paths.push(elbowPath(x1, yR32(2 * i), x2, yS16(i)));
+              paths.push(elbowPath(x1, yR32(2 * i + 1), x2, yS16(i)));
+            }
+            for (let i = 0; i < 2; i++) {
+              paths.push(elbowPath(x2, yS16(i), x3, yE8()));
+            }
 
-              return (
-                <g key={region}>
-                  {paths.map((d, idx) => (
-                    <path key={idx} d={d} />
-                  ))}
-                </g>
-              );
-            })}
+            return (
+              <g key={region} stroke={stroke} strokeWidth={1.5} fill="none">
+                {paths.map((d, idx) => (
+                  <path key={idx} d={d} />
+                ))}
+              </g>
+            );
+          })}
 
-            {[semi0Regions[0], semi0Regions[1]].map((r) => (
-              <path key={`semi0-${r}`} d={elbowPath(x3, elite8CenterY(regionIndex(r)), x4, semi0Y)} />
-            ))}
-            {[semi1Regions[0], semi1Regions[1]].map((r) => (
-              <path key={`semi1-${r}`} d={elbowPath(x3, elite8CenterY(regionIndex(r)), x4, semi1Y)} />
-            ))}
+          {/* Elite 8 -> Final Four: color by source region */}
+          {[semi0Regions[0], semi0Regions[1]].map((r) => (
+            <path key={`semi0-${r}`} d={elbowPath(x3, elite8CenterY(regionIndex(r)), x4, semi0Y)} stroke={REGION_STROKE[r]} strokeWidth={1.5} fill="none" />
+          ))}
+          {[semi1Regions[0], semi1Regions[1]].map((r) => (
+            <path key={`semi1-${r}`} d={elbowPath(x3, elite8CenterY(regionIndex(r)), x4, semi1Y)} stroke={REGION_STROKE[r]} strokeWidth={1.5} fill="none" />
+          ))}
 
+          {/* Final Four -> Championship */}
+          <g stroke="rgba(113,113,122,0.4)" strokeWidth={1.5} fill="none">
             <path d={elbowPath(x4, semi0Y, x5, champY)} />
             <path d={elbowPath(x4, semi1Y, x5, champY)} />
           </g>
         </svg>
 
-        {/* Cards */}
         <div className="absolute inset-0">
           <BracketRound round={0} columnIndex={0} matchupsByRegion={matchupsByRound[0]} showRegionLabels />
           <BracketRound round={1} columnIndex={1} matchupsByRegion={matchupsByRound[1]} />
@@ -127,7 +134,7 @@ export default function Bracket({ inferred }: { inferred: InferredBracket }) {
             const centerY = i === 0 ? semi0Y : semi1Y;
             return (
               <div key={m.id} className="absolute" style={{ left: x4 - CARD_W / 2, top: centerY - CARD_H / 2, width: CARD_W, height: CARD_H }}>
-                <MatchupCard matchup={m} />
+                <MatchupCard matchup={m} showRegion />
               </div>
             );
           })}

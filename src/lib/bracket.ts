@@ -18,6 +18,11 @@ function pickWinnerId(teamA: Team, probA: number, teamB: Team, probB: number) {
   return teamA.name.localeCompare(teamB.name) <= 0 ? teamA.id : teamB.id;
 }
 
+function pickDeterministicWinnerId(teamA: Team, teamB: Team) {
+  if (teamA.seed !== teamB.seed) return teamA.seed < teamB.seed ? teamA.id : teamB.id;
+  return teamA.name.localeCompare(teamB.name) <= 0 ? teamA.id : teamB.id;
+}
+
 function findTitleOddsForTeam(titleOdds: TitleOdds[], teamName: string): TitleOdds | undefined {
   const normTeam = normalizeTeamName(teamName);
   // Prefer the longest title-odds match (more specific school name).
@@ -31,7 +36,14 @@ function findTitleOddsForTeam(titleOdds: TitleOdds[], teamName: string): TitleOd
 function inferFallbackHeadToHead(titleOdds: TitleOdds[], teamA: Team, teamB: Team) {
   const oddsA = findTitleOddsForTeam(titleOdds, teamA.name);
   const oddsB = findTitleOddsForTeam(titleOdds, teamB.name);
-  if (!oddsA || !oddsB) return undefined;
+  if (!oddsA || !oddsB) {
+    // Always produce a deterministic fallback so locked brackets never show TBD.
+    // Better seed gets higher win probability; clamp to avoid unrealistic certainty.
+    const seedDelta = teamB.seed - teamA.seed;
+    const probA = Math.max(10, Math.min(90, 50 + seedDelta * 4));
+    const probB = 100 - probA;
+    return { probA, probB, volume: undefined };
+  }
   const pA = oddsA.probability;
   const pB = oddsB.probability;
   if (!Number.isFinite(pA) || !Number.isFinite(pB) || pA <= 0 || pB <= 0) return undefined;
@@ -97,7 +109,16 @@ export function inferBracket(model: BracketModel, probMode: ProbMode): InferredB
           };
         }
 
-        if (!allowFallback) return { id: matchupId, round: 0, region, teamA: slot.teamA, teamB: slot.teamB };
+        if (!allowFallback) {
+          return {
+            id: matchupId,
+            round: 0,
+            region,
+            teamA: slot.teamA,
+            teamB: slot.teamB,
+            winnerId: pickDeterministicWinnerId(slot.teamA, slot.teamB),
+          };
+        }
         const fallback = inferFallbackHeadToHead(model.titleOdds, slot.teamA, slot.teamB);
         if (!fallback) return { id: matchupId, round: 0, region, teamA: slot.teamA, teamB: slot.teamB };
         const winnerId = pickWinnerId(slot.teamA, fallback.probA, slot.teamB, fallback.probB);
@@ -131,7 +152,7 @@ export function inferBracket(model: BracketModel, probMode: ProbMode): InferredB
 
       if (!allowFallback) {
         // In game-only mode, we only have game-market probs for RD64 slots.
-        return { id: matchupId, round: 1, region, teamA, teamB };
+        return { id: matchupId, round: 1, region, teamA, teamB, winnerId: teamA && teamB ? pickDeterministicWinnerId(teamA, teamB) : undefined };
       }
       if (!teamA || !teamB) return { id: matchupId, round: 1, region, teamA, teamB };
       const fallback = inferFallbackHeadToHead(model.titleOdds, teamA, teamB);
@@ -157,7 +178,9 @@ export function inferBracket(model: BracketModel, probMode: ProbMode): InferredB
       const teamA = getWinnerTeam(left) ?? left?.teamA;
       const teamB = getWinnerTeam(right) ?? right?.teamB;
       const matchupId = makeMatchupId(region, 2, i);
-      if (!allowFallback) return { id: matchupId, round: 2, region, teamA, teamB };
+      if (!allowFallback) {
+        return { id: matchupId, round: 2, region, teamA, teamB, winnerId: teamA && teamB ? pickDeterministicWinnerId(teamA, teamB) : undefined };
+      }
       if (!teamA || !teamB) return { id: matchupId, round: 2, region, teamA, teamB };
       const fallback = inferFallbackHeadToHead(model.titleOdds, teamA, teamB);
       if (!fallback) return { id: matchupId, round: 2, region, teamA, teamB };
@@ -182,7 +205,9 @@ export function inferBracket(model: BracketModel, probMode: ProbMode): InferredB
       const teamA = getWinnerTeam(left) ?? left?.teamA;
       const teamB = getWinnerTeam(right) ?? right?.teamB;
       const matchupId = makeMatchupId(region, 3, i);
-      if (!allowFallback) return { id: matchupId, round: 3, region, teamA, teamB };
+      if (!allowFallback) {
+        return { id: matchupId, round: 3, region, teamA, teamB, winnerId: teamA && teamB ? pickDeterministicWinnerId(teamA, teamB) : undefined };
+      }
       if (!teamA || !teamB) return { id: matchupId, round: 3, region, teamA, teamB };
       const fallback = inferFallbackHeadToHead(model.titleOdds, teamA, teamB);
       if (!fallback) return { id: matchupId, round: 3, region, teamA, teamB };

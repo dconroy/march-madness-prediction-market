@@ -5,7 +5,7 @@ import type {
   TitleOdds,
   Team,
 } from "@/lib/types";
-import { REGION_ORDER, rd64SlotForSeedPair } from "@/data/bracket2026";
+import { RD64_SEED_PAIR_ORDER, REGION_ORDER, rd64SlotForSeedPair } from "@/data/bracket2026";
 
 const GAMMA_API_BASE = "https://gamma-api.polymarket.com";
 const POLYMARKET_BRACKET_URL = "https://polymarket.com/sports/cbb/bracket";
@@ -87,19 +87,29 @@ type BracketBounds = { boundaries: RegionBoundary[]; bracketEnd: number };
 
 function findBracketBounds(html: string): BracketBounds {
   const all: RegionBoundary[] = [];
+  const byRegion: Record<Region, number[]> = {
+    East: [],
+    South: [],
+    West: [],
+    Midwest: [],
+  };
   for (const r of REGION_ORDER) {
     const re = new RegExp(`tracking-widest mb-2 px-1[^>]*>${r}</div>`, "g");
     let m: RegExpExecArray | null;
     while ((m = re.exec(html)) !== null) {
       all.push({ region: r, idx: m.index });
+      byRegion[r].push(m.index);
     }
   }
   all.sort((a, b) => a.idx - b.idx);
   const boundaries = all.slice(0, REGION_ORDER.length);
 
-  const translateYRe = /tracking-widest[^>]*translateY[^>]*>(?:East|South|West|Midwest)<\/div>/;
-  const endMatch = translateYRe.exec(html);
-  const bracketEnd = endMatch ? endMatch.index : html.length;
+  // The page contains duplicate bracket copies. Use the earliest second region-header
+  // as the end of the first copy so we keep all legitimate games from copy #1.
+  const secondHeaderStarts = REGION_ORDER.map((r) => byRegion[r][1]).filter(
+    (idx): idx is number => typeof idx === "number"
+  );
+  const bracketEnd = secondHeaderStarts.length ? Math.min(...secondHeaderStarts) : html.length;
 
   return { boundaries, bracketEnd };
 }
@@ -112,6 +122,67 @@ function extractRegionForIndex(idx: number, bounds: BracketBounds): Region | und
     else break;
   }
   return best;
+}
+
+function fillMissingRd64FromRegionSections(
+  html: string,
+  bounds: BracketBounds,
+  result: Record<Region, BracketRd64GameSource[]>
+) {
+  const sortedBounds = bounds.boundaries.slice().sort((a, b) => a.idx - b.idx);
+
+  for (let i = 0; i < sortedBounds.length; i += 1) {
+    const { region, idx: start } = sortedBounds[i];
+    const nextStart = sortedBounds[i + 1]?.idx ?? bounds.bracketEnd;
+    const section = html.slice(start, nextStart);
+
+    const seedRe = /text-xs w-4 text-center font-medium shrink-0 text-text-secondary">(\d{1,2})<\/p>/g;
+    const seedsWithPos = [...section.matchAll(seedRe)]
+      .map((m) => ({ seed: Number(m[1]), idx: m.index ?? 0 }))
+      .filter((x) => x.seed >= 1 && x.seed <= 16);
+
+    if (seedsWithPos.length < 8) continue;
+
+    const seedToName = new Map<number, string>();
+    for (const s of seedsWithPos) {
+      const rowSlice = section.slice(s.idx, s.idx + 500);
+      const nameMatch = rowSlice.match(/class="text-sm truncate[^"]*">([^<]+)<\/p>/);
+      const name = nameMatch?.[1] ? decodeHtmlEntities(nameMatch[1].trim()) : "";
+      if (name) seedToName.set(s.seed, name);
+    }
+
+    for (let slotIndex = 0; slotIndex < RD64_SEED_PAIR_ORDER.length; slotIndex += 1) {
+      if (result[region].some((g) => g.slotIndex === slotIndex)) continue;
+
+      const pair = RD64_SEED_PAIR_ORDER[slotIndex];
+      const nameA = seedToName.get(pair.seedA);
+      const nameB = seedToName.get(pair.seedB);
+      if (!nameA && !nameB) continue;
+      const resolvedA = nameA && nameA.toLowerCase() !== "tbd" ? nameA : `Seed ${pair.seedA} Winner`;
+      const resolvedB = nameB && nameB.toLowerCase() !== "tbd" ? nameB : `Seed ${pair.seedB} Winner`;
+
+      const slot = rd64SlotForSeedPair(region, pair.seedA, pair.seedB);
+      if (!slot) continue;
+      result[region].push({
+        region,
+        slotIndex: slot.slotIndex,
+        seedA: slot.seedA,
+        seedB: slot.seedB,
+        teamA: {
+          id: teamIdFromName(resolvedA),
+          name: resolvedA,
+          seed: pair.seedA,
+          region,
+        },
+        teamB: {
+          id: teamIdFromName(resolvedB),
+          name: resolvedB,
+          seed: pair.seedB,
+          region,
+        },
+      });
+    }
+  }
 }
 
 function parsePolymarketBracketPageForRd64(html: string): Record<Region, BracketRd64GameSource[]> {
@@ -167,16 +238,20 @@ function parsePolymarketBracketPageForRd64(html: string): Record<Region, Bracket
       seeds[0] <= seeds[1] ? { seed: seeds[0], name: teamNames[0] } : { seed: seeds[1], name: teamNames[1] };
     const teamBFromSeed =
       seeds[0] <= seeds[1] ? { seed: seeds[1], name: teamNames[1] } : { seed: seeds[0], name: teamNames[0] };
+    const resolvedNameA =
+      teamAFromSeed.name.toLowerCase() === "tbd" ? `Seed ${teamAFromSeed.seed} Winner` : teamAFromSeed.name;
+    const resolvedNameB =
+      teamBFromSeed.name.toLowerCase() === "tbd" ? `Seed ${teamBFromSeed.seed} Winner` : teamBFromSeed.name;
 
     const teamA: Team = {
-      id: teamIdFromName(teamAFromSeed.name),
-      name: teamAFromSeed.name,
+      id: teamIdFromName(resolvedNameA),
+      name: resolvedNameA,
       seed: teamAFromSeed.seed,
       region,
     };
     const teamB: Team = {
-      id: teamIdFromName(teamBFromSeed.name),
-      name: teamBFromSeed.name,
+      id: teamIdFromName(resolvedNameB),
+      name: resolvedNameB,
       seed: teamBFromSeed.seed,
       region,
     };
@@ -194,6 +269,9 @@ function parsePolymarketBracketPageForRd64(html: string): Record<Region, Bracket
       marketSlug: slug,
     });
   }
+
+  // Some R64 cards can exist without a market link yet; backfill those from region HTML sections.
+  fillMissingRd64FromRegionSections(html, bounds, result);
 
   for (const region of REGION_ORDER) {
     result[region] = result[region].sort((a, b) => a.slotIndex - b.slotIndex);

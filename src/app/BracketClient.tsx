@@ -96,6 +96,9 @@ export default function BracketClient({ model }: { model: BracketModel }) {
           <span className="flex items-center gap-1">
             <span className="text-amber-500 font-semibold">I</span> Inferred
           </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-sm bg-amber-300 border border-amber-500" /> Higher seed favored
+          </span>
         </div>
       </div>
     </div>

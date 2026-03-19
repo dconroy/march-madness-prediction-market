@@ -23,6 +23,18 @@ function formatVolume(v?: number) {
   return `$${v.toFixed(0)}`;
 }
 
+function isHigherSeedFavorite(matchup: Matchup) {
+  const { teamA, teamB, probA, probB } = matchup;
+  if (!teamA || !teamB) return false;
+  if (typeof probA !== "number" || typeof probB !== "number") return false;
+  if (!Number.isFinite(probA) || !Number.isFinite(probB) || probA === probB) return false;
+
+  const favorite = probA > probB ? teamA : teamB;
+  const underdogBySeed = favorite.id === teamA.id ? teamB : teamA;
+  // Higher numeric seed means lower-ranked team (e.g. 10 over 7).
+  return favorite.seed > underdogBySeed.seed;
+}
+
 function TeamRow({
   team,
   prob,
@@ -71,6 +83,7 @@ function TeamRow({
 export default function MatchupCard({ matchup, showRegion }: { matchup: Matchup; showRegion?: boolean }) {
   const { probA, probB, teamA, teamB, winnerId, source, volume, region } = matchup;
   const hasProbs = probA !== undefined || probB !== undefined;
+  const higherSeedFavored = isHigherSeedFavorite(matchup);
   const isWinnerA = !!winnerId && teamA?.id === winnerId;
   const isWinnerB = !!winnerId && teamB?.id === winnerId;
   const volText = formatVolume(volume);
@@ -81,12 +94,19 @@ export default function MatchupCard({ matchup, showRegion }: { matchup: Matchup;
       className={[
         "h-full rounded-lg overflow-hidden flex flex-col justify-center border-l-[3px]",
         hasProbs ? "bg-white shadow-sm border border-zinc-200" : "bg-zinc-50 border border-zinc-200/60",
+        higherSeedFavored ? "ring-1 ring-amber-300 bg-amber-50/30" : "",
         regionColor ? regionColor.border : "border-l-zinc-300",
       ].join(" ")}
     >
       {showRegion && region && regionColor && (
-        <div className={["px-2 pt-1 text-[8px] font-bold uppercase tracking-wider", regionColor.text].join(" ")}>
+        <div className={["px-2 pt-1 text-[8px] font-bold uppercase tracking-wider flex items-center justify-between", regionColor.text].join(" ")}>
           {region}
+          {higherSeedFavored && <span className="text-[8px] text-amber-600">Upset lean</span>}
+        </div>
+      )}
+      {!showRegion && higherSeedFavored && (
+        <div className="px-2 pt-1 text-[8px] font-bold uppercase tracking-wider text-amber-600">
+          Upset lean
         </div>
       )}
       <TeamRow team={teamA} prob={probA} isWinner={isWinnerA} hasProbs={hasProbs} />

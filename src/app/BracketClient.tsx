@@ -5,6 +5,7 @@ import type { BracketModel, ProbMode } from "@/lib/types";
 import { inferBracket } from "@/lib/bracket";
 import Bracket from "@/components/Bracket";
 import SummaryBar from "@/components/SummaryBar";
+import WinnersSummary from "@/components/WinnersSummary";
 
 const MODE_OPTIONS: { value: ProbMode; label: string; desc: string }[] = [
   {
@@ -63,6 +64,9 @@ export default function BracketClient({ model }: { model: BracketModel }) {
           </div>
           <p className="text-[11px] text-zinc-500 max-w-md">{activeOption.desc}</p>
         </div>
+
+        {/* Winners summary */}
+        <WinnersSummary inferred={inferred} />
 
         {/* Bracket */}
         <div className="rounded-xl border border-zinc-200 bg-white p-2 overflow-x-auto">

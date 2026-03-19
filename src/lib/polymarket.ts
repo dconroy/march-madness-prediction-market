@@ -124,52 +124,49 @@ function parsePolymarketBracketPageForRd64(html: string): Record<Region, Bracket
 
   const bounds = findBracketBounds(html);
 
-  const hrefRe = /href="\/event\/(cbb-[A-Za-z0-9-]+)"\s*>Game View/g;
+  // Match event links - page uses ">View" (previously ">Game View")
+  const hrefRe = /href="\/event\/(cbb-[A-Za-z0-9-]+)">View/g;
   const hrefMatches = [...html.matchAll(hrefRe)];
 
   for (const m of hrefMatches) {
     const slug = m[1];
     const slugStart = m.index ?? 0;
 
-    const nextHrefIdx = html.indexOf('href="/event/cbb-', slugStart + slug.length);
-    const slice = html.slice(slugStart, nextHrefIdx === -1 ? slugStart + 2500 : nextHrefIdx);
-
     const region = extractRegionForIndex(slugStart, bounds);
     if (!region) continue;
 
-    const roundMatch = slice.match(/>R(\d)</);
-    const round = roundMatch ? Number(roundMatch[1]) : undefined;
-    if (round !== 1) continue; // R1 => Round of 64
+    // Team data is AFTER the link in the current page structure
+    const nextHrefIdx = html.indexOf('href="/event/cbb-', slugStart + slug.length + 5);
+    const afterSlice = html.slice(slugStart, nextHrefIdx === -1 ? slugStart + 3000 : nextHrefIdx);
 
-    const seedMatches = [...slice.matchAll(/<p[^>]*>(\d{1,2})<\/p>/g)].map((x) => Number(x[1]));
-    const seeds = seedMatches.filter((x) => x >= 1 && x <= 16);
-    const uniqSeeds = [...new Set(seeds)];
-    if (uniqSeeds.length < 2) continue;
-    const seedAParsed = uniqSeeds[0];
-    const seedBParsed = uniqSeeds[1];
-
-    const seedKeyMin = Math.min(seedAParsed, seedBParsed);
-    const seedKeyMax = Math.max(seedAParsed, seedBParsed);
-    const slot = rd64SlotForSeedPair(region, seedKeyMin, seedKeyMax);
-    if (!slot) continue;
-
-    const altMatches = [...slice.matchAll(/alt="([^"]+)"/g)].map((x) => decodeHtmlEntities(x[1])).filter((x) => normalizeTeamNameForMatch(x).length > 1);
+    // Extract short team names from alt attributes
+    const altMatches = [...afterSlice.matchAll(/alt="([^"]+)"/g)]
+      .map((x) => decodeHtmlEntities(x[1]))
+      .filter((x) => x.length > 1);
     const teamNames = altMatches.slice(0, 2);
     if (teamNames.length < 2) continue;
 
-    // We need to associate each team name with the correct seed number.
-    // The slice order is usually: (seed1/team1) then (seed2/team2), so use seed ordering from appearance.
-    const appearanceSeeds = seedMatches.filter((x) => x >= 1 && x <= 16).slice(0, 2);
-    if (appearanceSeeds.length < 2) continue;
-    const team1 = teamNames[0];
-    const team2 = teamNames[1];
+    // Seeds from text-text-secondary class (new format) or <p> tags (old format)
+    let seedMatches = [...afterSlice.matchAll(/text-text-secondary">(\d{1,2})<\/p>/g)]
+      .map((x) => Number(x[1]))
+      .filter((x) => x >= 1 && x <= 16);
+    if (seedMatches.length < 2) {
+      seedMatches = [...afterSlice.matchAll(/<p[^>]*>(\d{1,2})<\/p>/g)]
+        .map((x) => Number(x[1]))
+        .filter((x) => x >= 1 && x <= 16);
+    }
+    const seeds = seedMatches.slice(0, 2);
+    if (seeds.length < 2) continue;
 
-    const teamASeed = appearanceSeeds[0];
-    const teamBSeed = appearanceSeeds[1];
+    const seedKeyMin = Math.min(seeds[0], seeds[1]);
+    const seedKeyMax = Math.max(seeds[0], seeds[1]);
+    const slot = rd64SlotForSeedPair(region, seedKeyMin, seedKeyMax);
+    if (!slot) continue;
+
     const teamAFromSeed =
-      teamASeed <= teamBSeed ? { seed: teamASeed, name: team1 } : { seed: teamBSeed, name: team2 };
+      seeds[0] <= seeds[1] ? { seed: seeds[0], name: teamNames[0] } : { seed: seeds[1], name: teamNames[1] };
     const teamBFromSeed =
-      teamASeed <= teamBSeed ? { seed: teamBSeed, name: team2 } : { seed: teamASeed, name: team1 };
+      seeds[0] <= seeds[1] ? { seed: seeds[1], name: teamNames[1] } : { seed: seeds[0], name: teamNames[0] };
 
     const teamA: Team = {
       id: teamIdFromName(teamAFromSeed.name),
@@ -184,7 +181,6 @@ function parsePolymarketBracketPageForRd64(html: string): Record<Region, Bracket
       region,
     };
 
-    // Deduplicate by slotIndex (the page can include extra R1 entries in some cases).
     const existing = result[region].find((g) => g.slotIndex === slot.slotIndex);
     if (existing) continue;
 
@@ -199,7 +195,6 @@ function parsePolymarketBracketPageForRd64(html: string): Record<Region, Bracket
     });
   }
 
-  // Fill missing slots by sorting and keeping the first match we saw.
   for (const region of REGION_ORDER) {
     result[region] = result[region].sort((a, b) => a.slotIndex - b.slotIndex);
   }
@@ -269,15 +264,22 @@ async function getGameMarkets(matchups: BracketRd64GameSource[]): Promise<{
         for (const market of event.markets ?? []) {
           const outcomes = safeParseJsonArrayMaybe(market.outcomes) ?? [];
           if (outcomes.length !== 2) continue;
-          const aName = item.teamA.name;
-          const bName = item.teamB.name;
-          const outcomeSet = new Set(outcomes);
-          if (!outcomeSet.has(aName) || !outcomeSet.has(bName)) continue;
+          const aName = normalizeTeamNameForMatch(item.teamA.name);
+          const bName = normalizeTeamNameForMatch(item.teamB.name);
+
+          // Fuzzy match: bracket page may use short names ("Duke") while API uses full names ("Duke Blue Devils")
+          const aIdx = outcomes.findIndex((o) => {
+            const norm = normalizeTeamNameForMatch(o);
+            return norm === aName || norm.includes(aName) || aName.includes(norm);
+          });
+          const bIdx = outcomes.findIndex((o) => {
+            const norm = normalizeTeamNameForMatch(o);
+            return norm === bName || norm.includes(bName) || bName.includes(norm);
+          });
+          if (aIdx < 0 || bIdx < 0 || aIdx === bIdx) continue;
 
           const outcomePrices = safeParseJsonArrayMaybe(market.outcomePrices) ?? [];
           if (outcomePrices.length !== 2) continue;
-          const aIdx = outcomes.indexOf(aName);
-          const bIdx = outcomes.indexOf(bName);
           const probA = Number(outcomePrices[aIdx]) * 100;
           const probB = Number(outcomePrices[bIdx]) * 100;
           if (!Number.isFinite(probA) || !Number.isFinite(probB)) continue;

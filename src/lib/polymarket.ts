@@ -129,6 +129,12 @@ function extractRegionForIndex(idx: number, bounds: BracketBounds): Region | und
   return best;
 }
 
+// Hardcoded fallback for teams Polymarket hasn't resolved yet (play-in winners, etc.)
+const KNOWN_TEAMS_BY_REGION_SEED: Partial<Record<Region, Record<number, string>>> = {
+  South: { 16: "Prairie View A&M" },
+  Midwest: { 11: "Miami OH" },
+};
+
 function fillMissingRd64FromRegionSections(
   html: string,
   bounds: BracketBounds,
@@ -164,8 +170,10 @@ function fillMissingRd64FromRegionSections(
       const nameA = seedToName.get(pair.seedA);
       const nameB = seedToName.get(pair.seedB);
       if (!nameA && !nameB) continue;
-      const resolvedA = nameA && nameA.toLowerCase() !== "tbd" ? nameA : `Seed ${pair.seedA} Winner`;
-      const resolvedB = nameB && nameB.toLowerCase() !== "tbd" ? nameB : `Seed ${pair.seedB} Winner`;
+      const knownA = KNOWN_TEAMS_BY_REGION_SEED[region]?.[pair.seedA];
+      const knownB = KNOWN_TEAMS_BY_REGION_SEED[region]?.[pair.seedB];
+      const resolvedA = nameA && nameA.toLowerCase() !== "tbd" ? nameA : knownA ?? `Seed ${pair.seedA}`;
+      const resolvedB = nameB && nameB.toLowerCase() !== "tbd" ? nameB : knownB ?? `Seed ${pair.seedB}`;
 
       const slot = rd64SlotForSeedPair(region, pair.seedA, pair.seedB);
       if (!slot) continue;
@@ -245,9 +253,13 @@ function parsePolymarketBracketPageForRd64(html: string): Record<Region, Bracket
     const teamBFromSeed =
       seeds[0] <= seeds[1] ? { seed: seeds[1], name: teamNames[1] } : { seed: seeds[0], name: teamNames[0] };
     const resolvedNameA =
-      teamAFromSeed.name.toLowerCase() === "tbd" ? `Seed ${teamAFromSeed.seed} Winner` : teamAFromSeed.name;
+      teamAFromSeed.name.toLowerCase() === "tbd"
+        ? (KNOWN_TEAMS_BY_REGION_SEED[region]?.[teamAFromSeed.seed] ?? `Seed ${teamAFromSeed.seed}`)
+        : teamAFromSeed.name;
     const resolvedNameB =
-      teamBFromSeed.name.toLowerCase() === "tbd" ? `Seed ${teamBFromSeed.seed} Winner` : teamBFromSeed.name;
+      teamBFromSeed.name.toLowerCase() === "tbd"
+        ? (KNOWN_TEAMS_BY_REGION_SEED[region]?.[teamBFromSeed.seed] ?? `Seed ${teamBFromSeed.seed}`)
+        : teamBFromSeed.name;
 
     const teamA: Team = {
       id: teamIdFromName(resolvedNameA),

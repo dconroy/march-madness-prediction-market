@@ -10,6 +10,18 @@ function normalizeTeamName(s: string) {
     .trim();
 }
 
+const TEAM_ALIASES: Record<string, string[]> = {
+  connecticut: ["uconn"],
+  uconn: ["connecticut"],
+};
+
+function expandAbbreviations(s: string) {
+  return s
+    .replace(/\bst\b/g, "state")
+    .replace(/\bsaint\b/g, "st");
+}
+
+
 function pickWinnerId(teamA: Team, probA: number, teamB: Team, probB: number) {
   if (probA > probB) return teamA.id;
   if (probB > probA) return teamB.id;
@@ -23,13 +35,45 @@ function pickDeterministicWinnerId(teamA: Team, teamB: Team) {
   return teamA.name.localeCompare(teamB.name) <= 0 ? teamA.id : teamB.id;
 }
 
+function matchScore(bracketName: string, titleName: string): number {
+  if (bracketName === titleName) return 1000;
+
+  const bExp = expandAbbreviations(bracketName);
+  const tExp = expandAbbreviations(titleName);
+  if (bExp === tExp) return 900;
+
+  const aliasesB = TEAM_ALIASES[bracketName] ?? [];
+  for (const alias of aliasesB) {
+    if (alias === titleName) return 800;
+  }
+  const aliasesT = TEAM_ALIASES[titleName] ?? [];
+  for (const alias of aliasesT) {
+    if (alias === bracketName) return 800;
+  }
+
+  // Strip parenthetical qualifiers and check
+  const bNoParen = bracketName.replace(/\s+\w{2,3}$/g, "").trim();
+  const tNoParen = titleName.replace(/\s+\w{2,3}$/g, "").trim();
+  if (bNoParen === tNoParen && bNoParen.length >= 4) return 700;
+
+  const lenDiff = Math.abs(bracketName.length - titleName.length);
+
+  if (bExp.includes(tExp) || tExp.includes(bExp)) return 500 - lenDiff;
+  if (bExp.includes(expandAbbreviations(tNoParen)) || expandAbbreviations(tNoParen).includes(bExp)) return 400 - lenDiff;
+
+  return 0;
+}
+
 function findTitleOddsForTeam(titleOdds: TitleOdds[], teamName: string): TitleOdds | undefined {
   const normTeam = normalizeTeamName(teamName);
-  // Prefer the longest title-odds match (more specific school name).
   const candidates = titleOdds
-    .map((o) => ({ odds: o, matchLen: normTeam.includes(normalizeTeamName(o.teamName)) ? normalizeTeamName(o.teamName).length : 0 }))
-    .filter((c) => c.matchLen > 0)
-    .sort((a, b) => b.matchLen - a.matchLen);
+    .map((o) => {
+      const normTitle = normalizeTeamName(o.teamName);
+      const score = matchScore(normTeam, normTitle);
+      return { odds: o, score };
+    })
+    .filter((c) => c.score > 0)
+    .sort((a, b) => b.score - a.score);
   return candidates[0]?.odds;
 }
 

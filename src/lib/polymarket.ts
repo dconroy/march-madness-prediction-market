@@ -83,7 +83,7 @@ type BracketRd64GameSource = {
 };
 
 type RegionBoundary = { region: Region; idx: number };
-type BracketBounds = { boundaries: RegionBoundary[]; bracketEnd: number };
+type BracketBounds = { boundaries: RegionBoundary[]; bracketEnd: number; rd64End: number };
 
 function findBracketBounds(html: string): BracketBounds {
   const all: RegionBoundary[] = [];
@@ -104,18 +104,23 @@ function findBracketBounds(html: string): BracketBounds {
   all.sort((a, b) => a.idx - b.idx);
   const boundaries = all.slice(0, REGION_ORDER.length);
 
+  // First "translateY" region header marks the start of later-round columns.
+  const translateYRe = /tracking-widest[^>]*translateY[^>]*>(?:East|South|West|Midwest)<\/div>/;
+  const translateYMatch = translateYRe.exec(html);
+  const rd64End = translateYMatch ? translateYMatch.index : html.length;
+
   // The page contains duplicate bracket copies. Use the earliest second region-header
-  // as the end of the first copy so we keep all legitimate games from copy #1.
+  // as the end of the first copy.
   const secondHeaderStarts = REGION_ORDER.map((r) => byRegion[r][1]).filter(
     (idx): idx is number => typeof idx === "number"
   );
   const bracketEnd = secondHeaderStarts.length ? Math.min(...secondHeaderStarts) : html.length;
 
-  return { boundaries, bracketEnd };
+  return { boundaries, bracketEnd, rd64End: Math.min(rd64End, bracketEnd) };
 }
 
 function extractRegionForIndex(idx: number, bounds: BracketBounds): Region | undefined {
-  if (idx >= bounds.bracketEnd) return undefined;
+  if (idx >= bounds.rd64End) return undefined;
   let best: Region | undefined;
   for (const b of bounds.boundaries) {
     if (b.idx <= idx) best = b.region;
@@ -133,8 +138,9 @@ function fillMissingRd64FromRegionSections(
 
   for (let i = 0; i < sortedBounds.length; i += 1) {
     const { region, idx: start } = sortedBounds[i];
-    const nextStart = sortedBounds[i + 1]?.idx ?? bounds.bracketEnd;
-    const section = html.slice(start, nextStart);
+    const nextStart = sortedBounds[i + 1]?.idx ?? bounds.rd64End;
+    const sectionEnd = Math.min(nextStart, bounds.rd64End);
+    const section = html.slice(start, sectionEnd);
 
     const seedRe = /text-xs w-4 text-center font-medium shrink-0 text-text-secondary">(\d{1,2})<\/p>/g;
     const seedsWithPos = [...section.matchAll(seedRe)]

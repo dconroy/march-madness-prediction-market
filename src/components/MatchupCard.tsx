@@ -30,9 +30,10 @@ function isHigherSeedFavorite(matchup: Matchup) {
   if (!Number.isFinite(probA) || !Number.isFinite(probB) || probA === probB) return false;
 
   const favorite = probA > probB ? teamA : teamB;
-  const underdogBySeed = favorite.id === teamA.id ? teamB : teamA;
-  // Higher numeric seed means lower-ranked team (e.g. 10 over 7).
-  return favorite.seed > underdogBySeed.seed;
+  const underdog = favorite.id === teamA.id ? teamB : teamA;
+  const seedGap = Math.abs(favorite.seed - underdog.seed);
+  // Only flag when seed gap >= 2 (skip 8v9 coin flips) AND the worse seed is actually favored.
+  return favorite.seed > underdog.seed && seedGap >= 2;
 }
 
 function TeamRow({
@@ -65,6 +66,7 @@ function TeamRow({
           className={[
             "text-[11px] truncate leading-tight",
             isWinner ? "font-bold text-zinc-900" : "font-medium text-zinc-700",
+            emphasizeUpset && isWinner ? "font-bold text-amber-800" : "",
             !team ? "italic text-zinc-400" : "",
           ].join(" ")}
         >
@@ -74,7 +76,7 @@ function TeamRow({
       <span
         className={[
           "text-[11px] font-mono tabular-nums shrink-0",
-          isWinner ? "font-bold text-emerald-700" : "text-zinc-500",
+          isWinner && emphasizeUpset ? "font-bold text-amber-700" : isWinner ? "font-bold text-emerald-700" : "text-zinc-500",
         ].join(" ")}
       >
         {probText ?? (hasProbs ? "—" : "")}
@@ -97,25 +99,17 @@ export default function MatchupCard({ matchup, showRegion }: { matchup: Matchup;
       className={[
         "h-full rounded-lg overflow-hidden flex flex-col justify-center border-l-[3px]",
         hasProbs ? "bg-white shadow-sm border border-zinc-200" : "bg-zinc-50 border border-zinc-200/60",
-        higherSeedFavored
-          ? "ring-2 ring-inset ring-amber-500 border-amber-300 bg-gradient-to-br from-amber-50 via-white to-amber-100 shadow-md"
-          : "",
         regionColor ? regionColor.border : "border-l-zinc-300",
       ].join(" ")}
     >
-      {showRegion && region && regionColor && (
-        <div className={["px-2 pt-1 text-[8px] font-bold uppercase tracking-wider flex items-center justify-between", regionColor.text].join(" ")}>
-          {region}
-          {higherSeedFavored && (
-            <span className="text-[9px] font-extrabold text-amber-700 bg-amber-200/80 rounded px-1 py-[1px]">
-              Upset Alert
-            </span>
-          )}
+      {higherSeedFavored && (
+        <div className="bg-amber-500 text-white text-[8px] font-extrabold uppercase tracking-wider text-center py-[2px]">
+          ⚠ Upset Alert
         </div>
       )}
-      {!showRegion && higherSeedFavored && (
-        <div className="px-2 pt-1 text-[9px] font-extrabold uppercase tracking-wider text-amber-700">
-          <span className="inline-flex items-center rounded bg-amber-200/80 px-1 py-[1px]">Upset Alert</span>
+      {showRegion && region && regionColor && (
+        <div className={["px-2 pt-1 text-[8px] font-bold uppercase tracking-wider", regionColor.text].join(" ")}>
+          {region}
         </div>
       )}
       <TeamRow team={teamA} prob={probA} isWinner={isWinnerA} hasProbs={hasProbs} emphasizeUpset={higherSeedFavored} />

@@ -98,7 +98,7 @@ export default function MatchupCard({ matchup, showRegion }: { matchup: Matchup;
         "h-full rounded-lg overflow-hidden flex flex-col justify-center border-l-[3px]",
         hasProbs ? "bg-white shadow-sm border border-zinc-200" : "bg-zinc-50 border border-zinc-200/60",
         higherSeedFavored
-          ? "ring-2 ring-amber-500 border-amber-400 bg-gradient-to-br from-amber-50 via-white to-amber-100 shadow-md"
+          ? "ring-2 ring-inset ring-amber-500 border-amber-300 bg-gradient-to-br from-amber-50 via-white to-amber-100 shadow-md"
           : "",
         regionColor ? regionColor.border : "border-l-zinc-300",
       ].join(" ")}

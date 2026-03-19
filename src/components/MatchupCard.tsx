@@ -40,11 +40,13 @@ function TeamRow({
   prob,
   isWinner,
   hasProbs,
+  emphasizeUpset,
 }: {
   team?: Team;
   prob?: number;
   isWinner: boolean;
   hasProbs: boolean;
+  emphasizeUpset?: boolean;
 }) {
   const probText = formatProb(prob);
   return (
@@ -52,6 +54,7 @@ function TeamRow({
       className={[
         "flex items-center justify-between gap-1 px-2 py-[4px] min-w-0",
         isWinner ? "bg-emerald-50/80" : "",
+        emphasizeUpset && !isWinner ? "bg-amber-50/80" : "",
       ].join(" ")}
     >
       <div className="flex items-center gap-1.5 min-w-0">
@@ -94,24 +97,30 @@ export default function MatchupCard({ matchup, showRegion }: { matchup: Matchup;
       className={[
         "h-full rounded-lg overflow-hidden flex flex-col justify-center border-l-[3px]",
         hasProbs ? "bg-white shadow-sm border border-zinc-200" : "bg-zinc-50 border border-zinc-200/60",
-        higherSeedFavored ? "ring-1 ring-amber-300 bg-amber-50/30" : "",
+        higherSeedFavored
+          ? "ring-2 ring-amber-500 border-amber-400 bg-gradient-to-br from-amber-50 via-white to-amber-100 shadow-md"
+          : "",
         regionColor ? regionColor.border : "border-l-zinc-300",
       ].join(" ")}
     >
       {showRegion && region && regionColor && (
         <div className={["px-2 pt-1 text-[8px] font-bold uppercase tracking-wider flex items-center justify-between", regionColor.text].join(" ")}>
           {region}
-          {higherSeedFavored && <span className="text-[8px] text-amber-600">Upset lean</span>}
+          {higherSeedFavored && (
+            <span className="text-[9px] font-extrabold text-amber-700 bg-amber-200/80 rounded px-1 py-[1px]">
+              Upset Alert
+            </span>
+          )}
         </div>
       )}
       {!showRegion && higherSeedFavored && (
-        <div className="px-2 pt-1 text-[8px] font-bold uppercase tracking-wider text-amber-600">
-          Upset lean
+        <div className="px-2 pt-1 text-[9px] font-extrabold uppercase tracking-wider text-amber-700">
+          <span className="inline-flex items-center rounded bg-amber-200/80 px-1 py-[1px]">Upset Alert</span>
         </div>
       )}
-      <TeamRow team={teamA} prob={probA} isWinner={isWinnerA} hasProbs={hasProbs} />
+      <TeamRow team={teamA} prob={probA} isWinner={isWinnerA} hasProbs={hasProbs} emphasizeUpset={higherSeedFavored} />
       <div className="border-t border-zinc-100 mx-1.5" />
-      <TeamRow team={teamB} prob={probB} isWinner={isWinnerB} hasProbs={hasProbs} />
+      <TeamRow team={teamB} prob={probB} isWinner={isWinnerB} hasProbs={hasProbs} emphasizeUpset={higherSeedFavored} />
       {(source || volText) && (
         <div className="flex items-center justify-between px-2 pb-0.5">
           <span
